@@ -1,12 +1,13 @@
 import requests
 import smtplib
+import ssl
 import time
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from tabulate import tabulate
 from bs4 import BeautifulSoup as bs
 from copy import deepcopy
+from prettytable import PrettyTable
 
 # Login data to change
 wwsi_login = 'your_login'
@@ -28,22 +29,25 @@ def send_mail(source_email, source_password, target_email, table):
         target_email - email that message should be send to
         table - table with data
     """
+    # SSL context
+    context = ssl.create_default_context()
     # Create server
-    server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-    # Connect to server
-    server.ehlo()
-    server.connect('smtp.gmail.com', 465)
-    server.ehlo()
-    # Login
-    server.login(source_email, source_password)
-    # Content of message
-    text = "WWSI Grade Notificator has detected changes in your grades:\n{table}"
-    text = text.format(table=tabulate(table, headers="firstrow", tablefmt="grid"))
-    msg = MIMEMultipart("alternative", None, [MIMEText(text)])
-    msg['Subject'] = "WWSI grade changed"
-    # Send the mail
-    server.sendmail(source_email, target_email, msg.as_string())
-    server.quit()
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as server:
+        # Connect to server
+        server.ehlo()
+        server.connect('smtp.gmail.com', 465)
+        server.ehlo()
+        # Login
+        server.login(source_email, source_password)
+        # Content of message
+        text = "WWSI Grade Notificator has detected changes in your grades:\n"+table
+        msg = MIMEMultipart()
+        msg['Subject'] = "WWSI grade changed"
+        msg.attach(MIMEText(text))
+        # Send the mail
+        server.ehlo()
+        server.sendmail(source_email, target_email, msg.as_string())
+        server.quit()
 
 
 def get_grades(wwsi_login, wwsi_password):
@@ -97,23 +101,24 @@ if __name__ == "__main__":
             except:
                 print("WWSI connect error")
                 time.sleep(1)
-    
         if old_grades != grades:
             # Create table
             changed_grades = []
             for num in range(len(grades)):
                 if old_grades[num] != grades[num]:
                     changed_grades.append((old_grades[num], grades[num]))
-                msg = []
-                msg.append(headers)
+                msg = PrettyTable()
+                msg.field_names = headers
                 for changes in changed_grades:
-                    msg.append(['NEW'] + changes[0])
-                    msg.append(['OLD'] + changes[1])
+                    msg.add_row(['NEW'] + changes[0])
+                    msg.add_row(['OLD'] + changes[1])
+                    msg.add_row(['', '', '', '', '', ''])
+                    a = msg.get_string()
             # Send table
             success = False
             while not success:
                 try:
-                    send_mail(source_email, source_password, target_email, msg)
+                    send_mail(source_email, source_password, target_email, msg.get_string())
                     print('New grades sent')
                     success = True
                 except:
