@@ -113,7 +113,7 @@ if __name__ == "__main__":
                     msg.add_row(['NEW'] + changes[0])
                     msg.add_row(['OLD'] + changes[1])
                     msg.add_row(['', '', '', '', '', ''])
-                    a = msg.get_string()
+
             # Send table
             success = False
             while not success:
